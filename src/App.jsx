@@ -69,6 +69,7 @@ const initialTags = [
 
 // Smart lists configuration
 const defaultSmartLists = [
+  { id: 'inbox', name: 'Inbox', icon: Archive, color: 'bg-gray-500', pinned: true, type: 'smart' },
   { id: 'today', name: 'Today', icon: Calendar, color: 'bg-blue-500', pinned: true, type: 'smart' },
   { id: 'scheduled', name: 'Scheduled', icon: Clock, color: 'bg-orange-500', pinned: true, type: 'smart' },
   { id: 'flagged', name: 'Flagged', icon: Flag, color: 'bg-red-500', pinned: true, type: 'smart' },
@@ -142,8 +143,11 @@ function App() {
     totalGoals: goals.length
   }
 
-  // Get pinned smart lists for quick shortcuts
-  const pinnedSmartLists = smartLists.filter(list => list.pinned)
+  // Get pinned smart lists for quick shortcuts (limit to 4)
+  const pinnedSmartLists = smartLists.filter(list => list.pinned).slice(0, 4)
+
+  // Get pinned categories for quick shortcuts
+  const pinnedCategories = categories.filter(cat => cat.pinned || false)
 
   const toggleTask = (taskId) => {
     setTasks(tasks.map(task => 
@@ -173,8 +177,10 @@ function App() {
     ))
   }
 
-  const deleteSmartList = (listId) => {
-    setSmartLists(smartLists.filter(list => list.id !== listId))
+  const toggleCategoryPin = (categoryId) => {
+    setCategories(categories.map(cat =>
+      cat.id === categoryId ? { ...cat, pinned: !cat.pinned } : cat
+    ))
   }
 
   const addTask = () => {
@@ -844,10 +850,17 @@ function App() {
                 <div className={`p-3 rounded-lg ${category.color}`}>
                   <Tag className="h-6 w-6 text-white" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <h3 className="font-semibold">{category.name}</h3>
                   <p className="text-sm text-gray-500">{category.count} items</p>
                 </div>
+                <button
+                  onClick={() => toggleCategoryPin(category.id)}
+                  className="p-1 hover:bg-gray-100 rounded"
+                  title={category.pinned ? "Unpin from Quick Shortcuts" : "Pin to Quick Shortcuts"}
+                >
+                  <Star className={`h-4 w-4 ${category.pinned ? 'text-yellow-500 fill-current' : 'text-gray-400'}`} />
+                </button>
               </div>
             </CardContent>
           </Card>
@@ -965,7 +978,7 @@ function App() {
       )}
 
       {/* Sidebar */}
-      <div className={`w-80 bg-white border-r border-gray-200 flex-shrink-0 ${
+      <div className={`w-72 bg-white border-r border-gray-200 flex-shrink-0 ${
         isMobileMenuOpen ? 'fixed inset-y-0 left-0 z-50 transform translate-x-0' : 'fixed inset-y-0 left-0 z-50 transform -translate-x-full sm:relative sm:translate-x-0'
       } transition-transform duration-300 ease-in-out`}>
         <div className="flex flex-col h-full">
@@ -990,7 +1003,7 @@ function App() {
 
           {/* Quick Stats */}
           <div className="p-4 border-b border-gray-200">
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-2 gap-3 text-center">
               <div>
                 <div className="text-lg font-bold text-blue-600">{userStats.totalPoints}</div>
                 <div className="text-xs text-gray-500">Points</div>
@@ -999,20 +1012,16 @@ function App() {
                 <div className="text-lg font-bold text-green-600">Level {userStats.level}</div>
                 <div className="text-xs text-gray-500">Current</div>
               </div>
-              <div>
-                <div className="text-lg font-bold text-orange-600">{userStats.currentStreak}d</div>
-                <div className="text-xs text-gray-500">Streak</div>
-              </div>
             </div>
           </div>
 
           {/* Quick Shortcuts Section */}
-          {pinnedSmartLists.length > 0 && (
+          {(pinnedSmartLists.length > 0 || pinnedCategories.length > 0) && (
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-700">Quick Shortcuts</h3>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {pinnedSmartLists.map((list) => {
                   const Icon = list.icon
                   return (
@@ -1036,6 +1045,26 @@ function App() {
                     </button>
                   )
                 })}
+                {pinnedCategories.map((category) => (
+                  <button
+                    key={`cat-${category.id}`}
+                    onClick={() => {
+                      setActiveSection(`category-${category.id}`)
+                      setIsMobileMenuOpen(false)
+                    }}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-lg text-center transition-colors ${
+                      activeSection === `category-${category.id}`
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-md ${category.color}`}>
+                      <Tag className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-xs font-medium">{category.name}</span>
+                    <Star className="h-3 w-3 text-yellow-500 fill-current" />
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -1105,12 +1134,12 @@ function App() {
                             <span className="font-medium">{list.name}</span>
                           </button>
                           <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
-                            <button
-                              onClick={() => toggleSmartListPin(list.id)}
+                                   <button
+                              onClick={() => toggleCategoryPin(category.id)}
                               className="p-0.5 hover:bg-gray-200 rounded"
                               title="Pin to Quick Shortcuts"
                             >
-                              <Star className="h-3 w-3 text-gray-400" />
+                              <Star className={`h-3 w-3 ${category.pinned ? 'text-yellow-500 fill-current' : 'text-gray-400'}`} />
                             </button>
                           </div>
                         </div>
