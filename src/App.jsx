@@ -8,7 +8,7 @@ import {
   Music, Camera, Gamepad2, Palette, Code, Dumbbell, GraduationCap,
   Clock, AlertCircle, Flag, Search, Filter, Save, Trash2, Edit,
   CalendarIcon, User, Hash, Trophy, Award, TrendingUp, 
-  CheckCircle, Circle, Menu, X as CloseIcon, Inbox
+  CheckCircle, Circle, Menu, X as CloseIcon, Inbox, Sparkles, MessageCircle
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -303,6 +303,12 @@ function App() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newItemName, setNewItemName] = useState('')
 
+  // AI Search state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+
   // Data state
   const [tasks, setTasks] = useState(() => loadFromLocalStorage('mastermind_tasks', [
     {
@@ -466,6 +472,162 @@ function App() {
       }
     }
   }, [goals])
+
+  // AI Search functionality
+  const performAISearch = useCallback(async (query) => {
+    if (!query.trim()) {
+      setSearchResults([])
+      setShowSearchResults(false)
+      return
+    }
+
+    setIsSearching(true)
+    setShowSearchResults(true)
+
+    // Simulate AI processing delay
+    await new Promise(resolve => setTimeout(resolve, 800))
+
+    const searchTerms = query.toLowerCase().split(' ')
+    const results = []
+
+    // Search tasks
+    tasks.forEach(task => {
+      const relevance = searchTerms.some(term => 
+        task.title.toLowerCase().includes(term) || 
+        task.description?.toLowerCase().includes(term)
+      )
+      if (relevance) {
+        results.push({
+          type: 'task',
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          completed: task.completed,
+          icon: CheckSquare,
+          color: task.completed ? '#10B981' : '#3B82F6'
+        })
+      }
+    })
+
+    // Search projects
+    projects.forEach(project => {
+      const relevance = searchTerms.some(term => 
+        project.name.toLowerCase().includes(term) || 
+        project.description?.toLowerCase().includes(term)
+      )
+      if (relevance) {
+        results.push({
+          type: 'project',
+          id: project.id,
+          title: project.name,
+          description: project.description,
+          icon: FolderOpen,
+          color: project.color || '#8B5CF6'
+        })
+      }
+    })
+
+    // Search goals
+    goals.forEach(goal => {
+      const relevance = searchTerms.some(term => 
+        goal.title.toLowerCase().includes(term) || 
+        goal.description?.toLowerCase().includes(term)
+      )
+      if (relevance) {
+        results.push({
+          type: 'goal',
+          id: goal.id,
+          title: goal.title,
+          description: goal.description,
+          progress: calculateGoalProgress(goal, tasks),
+          icon: Target,
+          color: '#F59E0B'
+        })
+      }
+    })
+
+    // AI-powered suggestions based on query intent
+    const suggestions = generateAISuggestions(query, tasks, projects, goals)
+    
+    setSearchResults([...results, ...suggestions])
+    setIsSearching(false)
+  }, [tasks, projects, goals])
+
+  const generateAISuggestions = useCallback((query, tasks, projects, goals) => {
+    const suggestions = []
+    const queryLower = query.toLowerCase()
+
+    // Intent detection and smart suggestions
+    if (queryLower.includes('create') || queryLower.includes('add') || queryLower.includes('new')) {
+      suggestions.push({
+        type: 'suggestion',
+        id: 'create-task',
+        title: `Create task: "${query.replace(/create|add|new/gi, '').trim()}"`,
+        description: 'AI detected you want to create something new',
+        icon: Plus,
+        color: '#10B981',
+        action: 'create-task'
+      })
+    }
+
+    if (queryLower.includes('today') || queryLower.includes('now')) {
+      const todayTasks = tasks.filter(task => !task.completed && isToday(task.dueDate))
+      if (todayTasks.length > 0) {
+        suggestions.push({
+          type: 'suggestion',
+          id: 'today-focus',
+          title: `You have ${todayTasks.length} tasks due today`,
+          description: 'Focus on completing your daily goals',
+          icon: Calendar,
+          color: '#3B82F6',
+          action: 'show-today'
+        })
+      }
+    }
+
+    if (queryLower.includes('progress') || queryLower.includes('status')) {
+      const activeGoals = goals.filter(g => !g.completed)
+      if (activeGoals.length > 0) {
+        suggestions.push({
+          type: 'suggestion',
+          id: 'progress-review',
+          title: `Review progress on ${activeGoals.length} active goals`,
+          description: 'Check your goal completion status',
+          icon: BarChart3,
+          color: '#8B5CF6',
+          action: 'show-progress'
+        })
+      }
+    }
+
+    return suggestions
+  }, [])
+
+  const handleSearchSubmit = useCallback((e) => {
+    e.preventDefault()
+    performAISearch(searchQuery)
+  }, [searchQuery, performAISearch])
+
+  const handleSearchResultClick = useCallback((result) => {
+    if (result.action === 'create-task') {
+      // Create new task from AI suggestion
+      const newTask = {
+        id: generateId(),
+        title: result.title.replace('Create task: "', '').replace('"', ''),
+        description: '',
+        category: 'personal',
+        priority: 'medium',
+        dueDate: new Date().toISOString(),
+        completed: false,
+        createdAt: new Date().toISOString()
+      }
+      setTasks(prev => [...prev, newTask])
+      setSearchQuery('')
+      setShowSearchResults(false)
+    }
+    // Add more actions as needed
+  }, [])
 
   // Save to localStorage
   useEffect(() => {
@@ -674,6 +836,13 @@ function App() {
               activeGoals={activeGoals}
               onTaskToggle={handleTaskToggle}
               onGoalToggle={handleGoalToggle}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              searchResults={searchResults}
+              showSearchResults={showSearchResults}
+              isSearching={isSearching}
+              onSearchSubmit={handleSearchSubmit}
+              onSearchResultClick={handleSearchResultClick}
             />} />
             <Route path="/tasks" element={<TasksPage 
               tasks={tasks}
@@ -700,7 +869,9 @@ function App() {
 // Dashboard Component
 const Dashboard = React.memo(({ 
   tasks, goals, projects, userStats, todayTasks, overdueTasks, 
-  completedTasksToday, activeGoals, onTaskToggle, onGoalToggle 
+  completedTasksToday, activeGoals, onTaskToggle, onGoalToggle,
+  searchQuery, setSearchQuery, searchResults, showSearchResults, 
+  isSearching, onSearchSubmit, onSearchResultClick
 }) => {
   return (
     <div className="space-y-6">
@@ -712,6 +883,115 @@ const Dashboard = React.memo(({
         <div className="text-right">
           <div className="text-2xl font-bold text-blue-600">+45</div>
           <div className="text-sm text-gray-500">Points Today</div>
+        </div>
+      </div>
+
+      {/* AI Search Section */}
+      <div className="relative">
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-100">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-blue-600 rounded-lg">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">AI Assistant</h3>
+              <p className="text-sm text-gray-600">What's on your mind today?</p>
+            </div>
+          </div>
+          
+          <form onSubmit={onSearchSubmit} className="relative">
+            <div className="relative">
+              <MessageCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Ask me anything... 'create task', 'show today's progress', 'what should I focus on?'"
+                className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+              />
+              <button
+                type="submit"
+                disabled={isSearching}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {isSearching ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Search Results */}
+          {showSearchResults && (
+            <div className="mt-4 bg-white rounded-lg border border-gray-200 shadow-lg max-h-96 overflow-y-auto">
+              {isSearching ? (
+                <div className="p-4 text-center">
+                  <div className="animate-pulse flex items-center justify-center gap-2">
+                    <Sparkles className="h-5 w-5 text-blue-500" />
+                    <span className="text-gray-600">AI is thinking...</span>
+                  </div>
+                </div>
+              ) : searchResults.length > 0 ? (
+                <div className="divide-y divide-gray-100">
+                  {searchResults.map((result, index) => (
+                    <div
+                      key={`${result.type}-${result.id}-${index}`}
+                      onClick={() => onSearchResultClick(result)}
+                      className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div 
+                          className="p-2 rounded-lg flex-shrink-0"
+                          style={{ backgroundColor: `${result.color}20` }}
+                        >
+                          <result.icon 
+                            className="h-4 w-4" 
+                            style={{ color: result.color }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-900 truncate">
+                            {result.title}
+                          </h4>
+                          {result.description && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              {result.description}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full capitalize">
+                              {result.type}
+                            </span>
+                            {result.priority && (
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                result.priority === 'high' ? 'bg-red-100 text-red-700' :
+                                result.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {result.priority} priority
+                              </span>
+                            )}
+                            {result.completed && (
+                              <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                                Completed
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 text-center text-gray-500">
+                  <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p>No results found. Try asking something else!</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
