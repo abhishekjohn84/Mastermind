@@ -118,3 +118,46 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Minimal Flexbox Layout Fixes for Perfect Tablet Alignment */
+@media (min-width: 640px) {
+  /* Ensure flexbox layout is maintained on tablets and larger */
+  .min-h-screen.bg-gray-50.flex {
+    display: flex !important;
+    align-items: stretch !important;
+  }
+  
+  /* Sidebar positioning for tablets */
+  .w-80.bg-white.border-r.border-gray-200.flex-shrink-0 {
+    position: relative !important;
+    transform: none !important;
+    z-index: auto !important;
+  }
+  
+  /* Main content area for tablets */
+  .flex-1.flex.flex-col.min-w-0 {
+    display: flex !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  
+  /* Hide mobile elements on tablets */
+  .sm\:hidden {
+    display: none !important;
+  }
+}
+
+/* Force visibility on all screen sizes >= 640px */
+@media (min-width: 640px) {
+  .flex-1.flex.flex-col.min-w-0,
+  .flex-1.p-6.overflow-y-auto {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  .flex-1.p-6.overflow-y-auto {
+    display: block !important;
+  }
+}
+
